@@ -46,6 +46,7 @@ type Client struct {
 	Definitions  *wsdlDefinitions
 	Body         []byte
 	Header       []byte
+	Cookies		map[string]string
 
 	payload []byte
 }
