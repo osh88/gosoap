@@ -1,13 +1,12 @@
 package gosoap
 
 import (
-	"bytes"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
+	"bytes"
 )
 
 // Params type is used to set the params in soap request
@@ -56,27 +55,29 @@ func (c *Client) GetLastRequest() []byte {
 }
 
 // Call call's the method m with Params p
-func (c *Client) Call(m string, p Params) (err error) {
+func (c *Client) Call(m string, p Params) *http.Request {
 	c.Method = m
 	c.Params = p
 
-	c.payload, err = xml.MarshalIndent(c, "", "")
-	if err != nil {
-		return err
-	}
+	c.payload, _ = xml.MarshalIndent(c, "", "")
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
 
-	b, err := c.doRequest(c.Definitions.Services[0].Ports[0].SoapAddresses[0].Location)
-	if err != nil {
-		return err
-	}
+	req := c.doRequest(c.Definitions.Services[0].Ports[0].SoapAddresses[0].Location)
 
-	var soap SoapEnvelope
-	err = xml.Unmarshal(b, &soap)
+	//b, err := c.doRequest(c.Definitions.Services[0].Ports[0].SoapAddresses[0].Location)
+	//if err != nil {
+	//	return err
+	//}
 
-	c.Body = soap.Body.Contents
-	c.Header = soap.Header.Contents
+	//var soap SoapEnvelope
+	//err = xml.Unmarshal(b, &soap)
+	//
+	//c.Body = soap.Body.Contents
+	//c.Header = soap.Header.Contents
 
-	return err
+	return req
 }
 
 // Unmarshal get the body and unmarshal into the interface
@@ -96,13 +97,14 @@ func (c *Client) Unmarshal(v interface{}) error {
 
 // doRequest makes new request to the server using the c.Method, c.URL and the body.
 // body is enveloped in Call method
-func (c *Client) doRequest(url string) ([]byte, error) {
+func (c *Client) doRequest(url string) *http.Request {
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(c.payload))
 	if err != nil {
-		return nil, err
+		//return nil, err
+		fmt.Println(err)
 	}
 
-	client := &http.Client{}
+	//client := &http.Client{}
 
 	req.ContentLength = int64(len(c.payload))
 
@@ -110,13 +112,13 @@ func (c *Client) doRequest(url string) ([]byte, error) {
 	req.Header.Add("Accept", "text/xml")
 	req.Header.Add("SOAPAction", fmt.Sprintf("%s/%s", c.URL, c.Method))
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+	//resp, err := client.Do(req)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//defer resp.Body.Close()
 
-	return ioutil.ReadAll(resp.Body)
+	return req
 }
 
 // SoapEnvelope struct
