@@ -17,9 +17,14 @@ func (c Client) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
 		return fmt.Errorf("definitions is nil")
 	}
 
+	var targetNamespace string
+	if len(c.Definitions.Types) > 0 && len(c.Definitions.Types[0].XsdSchema) > 0 {
+		targetNamespace = c.Definitions.Types[0].XsdSchema[0].TargetNamespace
+	}
+
 	startEnvelope()
 	if len(c.HeaderParams) > 0 {
-		startHeader(c.HeaderName, c.Definitions.Types[0].XsdSchema[0].TargetNamespace)
+		startHeader(c.HeaderName, targetNamespace)
 		for k, v := range c.HeaderParams {
 			t := xml.StartElement{
 				Name: xml.Name{
@@ -34,7 +39,7 @@ func (c Client) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
 		endHeader(c.HeaderName)
 	}
 
-	err := startBody(c.Method, c.Definitions.Types[0].XsdSchema[0].TargetNamespace)
+	err := startBody(c.Method, targetNamespace)
 	if err != nil {
 		return err
 	}
