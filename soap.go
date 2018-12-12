@@ -1,12 +1,12 @@
 package gosoap
 
 import (
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
-	"bytes"
 )
 
 // Params type is used to set the params in soap request
@@ -40,12 +40,13 @@ type Client struct {
 	URL          string
 	Method       string
 	Params       Params
+	ParamsOrder  []string
 	HeaderName   string
 	HeaderParams Params
 	Definitions  *wsdlDefinitions
 	Body         []byte
 	Header       []byte
-	Cookies		map[string]string
+	Cookies      map[string]string
 
 	payload []byte
 }
@@ -87,12 +88,16 @@ func (c *Client) Unmarshal(v interface{}) error {
 	}
 
 	var f Fault
-	xml.Unmarshal(c.Body, &f)
+	err := XmlUnmarshal(bytes.NewReader(c.Body), &f)
+	if err != nil {
+		return err
+	}
+
 	if f.Code != "" {
 		return fmt.Errorf("[%s]: %s", f.Code, f.Description)
 	}
 
-	return xml.Unmarshal(c.Body, v)
+	return XmlUnmarshal(bytes.NewReader(c.Body), v)
 }
 
 // doRequest makes new request to the server using the c.Method, c.URL and the body.
