@@ -44,7 +44,8 @@ func (c Client) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
 		return err
 	}
 
-	for k, v := range c.Params {
+	for _, k := range getKeys(c.ParamsOrder, c.Params) {
+		v := c.Params[k]
 		t := xml.StartElement{
 			Name: xml.Name{
 				Space: "",
@@ -191,4 +192,23 @@ func endBody(m string) {
 	}
 
 	tokens = append(tokens, r, b)
+}
+
+func getKeys(paramsOrder []string, params map[string]string) (keys []string) {
+	added := make(map[string]bool)
+
+	for _, k := range paramsOrder {
+		if _, ok := params[k]; ok && !added[k] {
+			keys = append(keys, k)
+		}
+	}
+
+	if len(keys) != len(params) {
+		keys = keys[:0]
+		for k, _ := range params {
+			keys = append(keys, k)
+		}
+	}
+
+	return
 }

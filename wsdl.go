@@ -2,7 +2,8 @@ package gosoap
 
 import (
 	"encoding/xml"
-	"io/ioutil"
+	"golang.org/x/net/html/charset"
+	"io"
 	"net/http"
 )
 
@@ -153,15 +154,15 @@ type xsdMaxInclusive struct {
 }
 
 // getwsdlDefinitions sent request to the wsdl url and set definitions on struct
-func getWsdlDefinitions(u string) (wsdl *wsdlDefinitions, err error) {
+func getWsdlDefinitions(u string) (*wsdlDefinitions, error) {
 	r, err := http.Get(u)
 	if err != nil {
 		return nil, err
 	}
 	defer r.Body.Close()
 
-	b, _ := ioutil.ReadAll(r.Body)
-	err = xml.Unmarshal(b, &wsdl)
+	wsdl := new(wsdlDefinitions)
+	err = XmlUnmarshal(r.Body, wsdl)
 
 	return wsdl, err
 }
@@ -171,4 +172,12 @@ type Fault struct {
 	Code        string `xml:"faultcode"`
 	Description string `xml:"faultstring"`
 	Detail      string `xml:"detail"`
+}
+
+// Поддержка кодировок кроме utf8
+// https://stackoverflow.com/questions/6002619/unmarshal-an-iso-8859-1-xml-input-in-go
+func XmlUnmarshal(r io.Reader, v interface{}) error {
+	decoder := xml.NewDecoder(r)
+	decoder.CharsetReader = charset.NewReaderLabel
+	return decoder.Decode(v)
 }
