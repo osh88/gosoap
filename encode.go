@@ -9,7 +9,6 @@ var tokens []xml.Token
 
 // MarshalXML envelope the body and encode to xml
 func (c Client) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
-
 	tokens = []xml.Token{}
 
 	//start envelope
@@ -17,7 +16,7 @@ func (c Client) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
 		return fmt.Errorf("definitions is nil")
 	}
 
-	var targetNamespace string
+	targetNamespace := c.Definitions.TargetNamespace
 	if len(c.Definitions.Types) > 0 && len(c.Definitions.Types[0].XsdSchema) > 0 {
 		targetNamespace = c.Definitions.Types[0].XsdSchema[0].TargetNamespace
 	}
