@@ -105,23 +105,20 @@ func (c *Client) Unmarshal(v interface{}) error {
 func (c *Client) doRequest(url string) *http.Request {
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(c.payload))
 	if err != nil {
-		//return nil, err
 		fmt.Println(err)
 	}
 
-	//client := &http.Client{}
-
 	req.ContentLength = int64(len(c.payload))
-
 	req.Header.Add("Content-Type", "text/xml;charset=UTF-8")
 	req.Header.Add("Accept", "text/xml")
-	req.Header.Add("SOAPAction", fmt.Sprintf("%s/%s", c.URL, c.Method))
 
-	//resp, err := client.Do(req)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//defer resp.Body.Close()
+	soapAction := fmt.Sprintf("%s/%s", c.URL, c.Method)
+	for _,oper := range c.Definitions.Bindings[0].Operations {
+		if oper.Name == c.Method {
+			soapAction = oper.SoapOperations[0].SoapAction
+		}
+	}
+	req.Header.Add("SOAPAction", soapAction)
 
 	return req
 }

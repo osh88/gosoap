@@ -17,9 +17,9 @@ func (c Client) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
 	}
 
 	targetNamespace := c.Definitions.TargetNamespace
-	if len(c.Definitions.Types) > 0 && len(c.Definitions.Types[0].XsdSchema) > 0 {
-		targetNamespace = c.Definitions.Types[0].XsdSchema[0].TargetNamespace
-	}
+	//if targetNamespace == "" && len(c.Definitions.Types) > 0 && len(c.Definitions.Types[0].XsdSchema) > 0 {
+	//	targetNamespace = c.Definitions.Types[0].XsdSchema[0].TargetNamespace
+	//}
 
 	startEnvelope()
 	if len(c.HeaderParams) > 0 {
