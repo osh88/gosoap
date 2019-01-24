@@ -3,8 +3,9 @@ package gosoap
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"fmt"
-	"net/http"
+	"github.com/valyala/fasthttp"
 	"net/url"
 	"strings"
 )
@@ -56,29 +57,25 @@ func (c *Client) GetLastRequest() []byte {
 }
 
 // Call call's the method m with Params p
-func (c *Client) Call(m string, p Params) *http.Request {
+func (c *Client) FillFastRequest(req *fasthttp.Request, m string, p Params) error {
 	c.Method = m
 	c.Params = p
+	var err error
+	c.payload, err = xml.Marshal(c)
+	if err != nil {
+		return fmt.Errorf("gosoap.FillFastRequest: %v", err)
+	}
 
-	c.payload, _ = xml.MarshalIndent(c, "", "")
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
+	for _, service := range c.Definitions.Services {
+		for _, ports := range service.Ports {
+			for _, addr := range ports.SoapAddresses {
+				c.fillRequest(req, addr.Location)
+				return nil
+			}
+		}
+	}
 
-	req := c.doRequest(c.Definitions.Services[0].Ports[0].SoapAddresses[0].Location)
-
-	//b, err := c.doRequest(c.Definitions.Services[0].Ports[0].SoapAddresses[0].Location)
-	//if err != nil {
-	//	return err
-	//}
-
-	//var soap SoapEnvelope
-	//err = xml.Unmarshal(b, &soap)
-	//
-	//c.Body = soap.Body.Contents
-	//c.Header = soap.Header.Contents
-
-	return req
+	return errors.New("gosoap.FillFastRequest: soap address not found")
 }
 
 // Unmarshal get the body and unmarshal into the interface
@@ -102,25 +99,25 @@ func (c *Client) Unmarshal(v interface{}) error {
 
 // doRequest makes new request to the server using the c.Method, c.URL and the body.
 // body is enveloped in Call method
-func (c *Client) doRequest(url string) *http.Request {
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(c.payload))
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	req.ContentLength = int64(len(c.payload))
-	req.Header.Add("Content-Type", "text/xml;charset=UTF-8")
-	req.Header.Add("Accept", "text/xml")
+func (c *Client) fillRequest(req *fasthttp.Request, url string) {
+	req.Header.SetMethod("POST")
+	req.Header.SetRequestURI(url)
+	req.Header.Set("Content-Type", "text/xml;charset=UTF-8")
+	req.Header.Set("Accept", "text/xml")
 
 	soapAction := fmt.Sprintf("%s/%s", c.URL, c.Method)
-	for _,oper := range c.Definitions.Bindings[0].Operations {
-		if oper.Name == c.Method {
-			soapAction = oper.SoapOperations[0].SoapAction
+	if len(c.Definitions.Bindings) > 0 {
+		for _, oper := range c.Definitions.Bindings[0].Operations {
+			if oper.Name == c.Method && len(oper.SoapOperations) > 0 {
+				soapAction = oper.SoapOperations[0].SoapAction
+			}
 		}
 	}
-	req.Header.Add("SOAPAction", soapAction)
+	req.Header.Set("SOAPAction", soapAction)
 
-	return req
+	req.Header.SetContentLength(len(c.payload))
+	req.SetBody(c.payload)
+	return
 }
 
 // SoapEnvelope struct
