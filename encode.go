@@ -3,48 +3,49 @@ package gosoap
 import (
 	"encoding/xml"
 	"fmt"
+	"bytes"
 )
 
-var tokens []xml.Token
-
 // MarshalXML envelope the body and encode to xml
-func (c Client) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
-	tokens = []xml.Token{}
-
+func (c *Helper) encode(method string, params *Params, paramsOrder []string, headerName string, headerParams *Params) ([]byte, error) {
 	//start envelope
-	if c.Definitions == nil {
-		return fmt.Errorf("definitions is nil")
+	if c.definitions == nil {
+		return nil, fmt.Errorf("definitions is nil")
 	}
 
-	targetNamespace := c.Definitions.TargetNamespace
+	var err error
+	var buf bytes.Buffer
+	e := xml.NewEncoder(&buf)
+
+	tokens := []xml.Token{}
+
+	targetNamespace := c.definitions.TargetNamespace
 	//if targetNamespace == "" && len(c.Definitions.Types) > 0 && len(c.Definitions.Types[0].XsdSchema) > 0 {
 	//	targetNamespace = c.Definitions.Types[0].XsdSchema[0].TargetNamespace
 	//}
 
-	startEnvelope()
-	if len(c.HeaderParams) > 0 {
-		startHeader(c.HeaderName, targetNamespace)
-		for k, v := range c.HeaderParams {
+	tokens = startEnvelope(tokens)
+
+	if headerParams != nil {
+		tokens = startHeader(tokens, headerName, targetNamespace)
+		for k, v := range *headerParams {
 			t := xml.StartElement{
 				Name: xml.Name{
 					Space: "",
 					Local: k,
 				},
 			}
-
 			tokens = append(tokens, t, xml.CharData(v), xml.EndElement{Name: t.Name})
 		}
-
-		endHeader(c.HeaderName)
+		tokens = endHeader(tokens, headerName)
 	}
 
-	err := startBody(c.Method, targetNamespace)
-	if err != nil {
-		return err
+	if tokens, err = startBody(tokens, method, targetNamespace); err != nil {
+		return nil, err
 	}
 
-	for _, k := range getKeys(c.ParamsOrder, c.Params) {
-		v := c.Params[k]
+	for _, k := range getKeys(paramsOrder, params) {
+		v := (*params)[k]
 		t := xml.StartElement{
 			Name: xml.Name{
 				Space: "",
@@ -54,21 +55,24 @@ func (c Client) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
 
 		tokens = append(tokens, t, xml.CharData(v), xml.EndElement{Name: t.Name})
 	}
-	//end envelope
-	endBody(c.Method)
-	endEnvelope()
+
+	tokens = endBody(tokens, method)
+	tokens = endEnvelope(tokens)
 
 	for _, t := range tokens {
-		err := e.EncodeToken(t)
-		if err != nil {
-			return err
+		if err := e.EncodeToken(t); err != nil {
+			return nil, err
 		}
 	}
 
-	return e.Flush()
+	if err := e.Flush(); err != nil {
+		return nil, err
+	} else {
+		return buf.Bytes(), nil
+	}
 }
 
-func startEnvelope() {
+func startEnvelope(tokens []xml.Token) []xml.Token {
 	e := xml.StartElement{
 		Name: xml.Name{
 			Space: "",
@@ -81,10 +85,10 @@ func startEnvelope() {
 		},
 	}
 
-	tokens = append(tokens, e)
+	return append(tokens, e)
 }
 
-func endEnvelope() {
+func endEnvelope(tokens []xml.Token) []xml.Token {
 	e := xml.EndElement{
 		Name: xml.Name{
 			Space: "",
@@ -92,10 +96,10 @@ func endEnvelope() {
 		},
 	}
 
-	tokens = append(tokens, e)
+	return append(tokens, e)
 }
 
-func startHeader(m, n string) {
+func startHeader(tokens []xml.Token, m, n string) []xml.Token {
 	h := xml.StartElement{
 		Name: xml.Name{
 			Space: "",
@@ -104,8 +108,7 @@ func startHeader(m, n string) {
 	}
 
 	if m == "" || n == "" {
-		tokens = append(tokens, h)
-		return
+		return append(tokens, h)
 	}
 
 	r := xml.StartElement{
@@ -118,12 +121,10 @@ func startHeader(m, n string) {
 		},
 	}
 
-	tokens = append(tokens, h, r)
-
-	return
+	return append(tokens, h, r)
 }
 
-func endHeader(m string) {
+func endHeader(tokens []xml.Token, m string) []xml.Token {
 	h := xml.EndElement{
 		Name: xml.Name{
 			Space: "",
@@ -132,8 +133,7 @@ func endHeader(m string) {
 	}
 
 	if m == "" {
-		tokens = append(tokens, h)
-		return
+		return append(tokens, h)
 	}
 
 	r := xml.EndElement{
@@ -143,11 +143,11 @@ func endHeader(m string) {
 		},
 	}
 
-	tokens = append(tokens, r, h)
+	return append(tokens, r, h)
 }
 
 // startToken initiate body of the envelope
-func startBody(m, n string) error {
+func startBody(tokens []xml.Token, m, n string) ([]xml.Token, error) {
 	b := xml.StartElement{
 		Name: xml.Name{
 			Space: "",
@@ -156,7 +156,7 @@ func startBody(m, n string) error {
 	}
 
 	if m == "" || n == "" {
-		return fmt.Errorf("method or namespace is empty")
+		return nil, fmt.Errorf("method or namespace is empty")
 	}
 
 	r := xml.StartElement{
@@ -169,13 +169,11 @@ func startBody(m, n string) error {
 		},
 	}
 
-	tokens = append(tokens, b, r)
-
-	return nil
+	return append(tokens, b, r), nil
 }
 
 // endToken close body of the envelope
-func endBody(m string) {
+func endBody(tokens []xml.Token, m string) []xml.Token {
 	b := xml.EndElement{
 		Name: xml.Name{
 			Space: "",
@@ -190,21 +188,21 @@ func endBody(m string) {
 		},
 	}
 
-	tokens = append(tokens, r, b)
+	return append(tokens, r, b)
 }
 
-func getKeys(paramsOrder []string, params map[string]string) (keys []string) {
+func getKeys(paramsOrder []string, params *Params) (keys []string) {
 	added := make(map[string]bool)
 
 	for _, k := range paramsOrder {
-		if _, ok := params[k]; ok && !added[k] {
+		if _, ok := (*params)[k]; ok && !added[k] {
 			keys = append(keys, k)
 		}
 	}
 
-	if len(keys) != len(params) {
+	if len(keys) != len(*params) {
 		keys = keys[:0]
-		for k, _ := range params {
+		for k, _ := range *params {
 			keys = append(keys, k)
 		}
 	}

@@ -4,7 +4,6 @@ import (
 	"encoding/xml"
 	"golang.org/x/net/html/charset"
 	"io"
-	"net/http"
 )
 
 type wsdlDefinitions struct {
@@ -151,20 +150,6 @@ type xsdMinInclusive struct {
 
 type xsdMaxInclusive struct {
 	Value string `xml:"value,attr"`
-}
-
-// getwsdlDefinitions sent request to the wsdl url and set definitions on struct
-func getWsdlDefinitions(u string) (*wsdlDefinitions, error) {
-	r, err := http.Get(u)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Body.Close()
-
-	wsdl := new(wsdlDefinitions)
-	err = XmlUnmarshal(r.Body, wsdl)
-
-	return wsdl, err
 }
 
 // Fault response
