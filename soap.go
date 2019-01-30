@@ -6,6 +6,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"net/http"
 	"strings"
+	"encoding/xml"
 )
 
 // Client struct hold all the informations about WSDL,
@@ -88,6 +89,25 @@ func (c *Helper) FillFastRequest(req *fasthttp.Request, method string, params *P
 	req.Header.Set("SOAPAction", c.getSOAPAction(method))
 	req.Header.SetContentLength(len(payload))
 	req.SetBody(payload)
+
+	return nil
+}
+
+func (c *Helper) CheckError(data []byte) error {
+	envelope := &struct {
+		Fault struct {
+			FaultCode   string `xml:"faultcode"`
+			FaultString string `xml:"faultstring"`
+		} `xml:"Body>Fault"`
+	}{}
+
+	if err := xml.Unmarshal(data, envelope); err != nil {
+		return err
+	}
+
+	if envelope.Fault.FaultCode != "" || envelope.Fault.FaultString != "" {
+		return fmt.Errorf("%s (%s)", envelope.Fault.FaultCode, envelope.Fault.FaultString)
+	}
 
 	return nil
 }
