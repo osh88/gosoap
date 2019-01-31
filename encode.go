@@ -192,6 +192,10 @@ func endBody(tokens []xml.Token, m string) []xml.Token {
 }
 
 func getKeys(paramsOrder []string, params *Params) (keys []string) {
+	if params == nil {
+		return nil
+	}
+
 	added := make(map[string]bool)
 
 	for _, k := range paramsOrder {
