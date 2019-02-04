@@ -1,6 +1,7 @@
 package gosoap
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/valyala/fasthttp"
@@ -101,12 +102,16 @@ func (c *Helper) CheckError(data []byte) error {
 		} `xml:"Body>Fault"`
 	}{}
 
-	if err := xml.Unmarshal(data, envelope); err != nil {
-		return err
-	}
+	// Разбор XML медленный, поэтому наличие тега с ошибкой
+	// проверяем сначала простым поиском
+	if bytes.Index(data, []byte(`Fault>`)) > -1 {
+		if err := xml.Unmarshal(data, envelope); err != nil {
+			return err
+		}
 
-	if envelope.Fault.FaultCode != "" || envelope.Fault.FaultString != "" {
-		return fmt.Errorf("%s (%s)", envelope.Fault.FaultCode, envelope.Fault.FaultString)
+		if envelope.Fault.FaultCode != "" || envelope.Fault.FaultString != "" {
+			return fmt.Errorf("%s (%s)", envelope.Fault.FaultCode, envelope.Fault.FaultString)
+		}
 	}
 
 	return nil
