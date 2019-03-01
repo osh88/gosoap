@@ -7,7 +7,7 @@ import (
 )
 
 // MarshalXML envelope the body and encode to xml
-func (c *Helper) encode(method string, params *Params, paramsOrder []string, headerName string, headerParams *Params) ([]byte, error) {
+func (c *Helper) encode(method string, params *Params, headerName string, headerParams *Params) ([]byte, error) {
 	//start envelope
 	if c.definitions == nil {
 		return nil, fmt.Errorf("definitions is nil")
@@ -28,14 +28,14 @@ func (c *Helper) encode(method string, params *Params, paramsOrder []string, hea
 
 	if headerParams != nil {
 		tokens = startHeader(tokens, headerName, targetNamespace)
-		for k, v := range *headerParams {
+		for _, p := range *headerParams {
 			t := xml.StartElement{
 				Name: xml.Name{
 					Space: "",
-					Local: k,
+					Local: p.K,
 				},
 			}
-			tokens = append(tokens, t, xml.CharData(v), xml.EndElement{Name: t.Name})
+			tokens = append(tokens, t, xml.CharData(p.V), xml.EndElement{Name: t.Name})
 		}
 		tokens = endHeader(tokens, headerName)
 	}
@@ -44,16 +44,17 @@ func (c *Helper) encode(method string, params *Params, paramsOrder []string, hea
 		return nil, err
 	}
 
-	for _, k := range getKeys(paramsOrder, params) {
-		v := (*params)[k]
-		t := xml.StartElement{
-			Name: xml.Name{
-				Space: "",
-				Local: k,
-			},
-		}
+	if params != nil {
+		for _, p := range *params {
+			t := xml.StartElement{
+				Name: xml.Name{
+					Space: "",
+					Local: p.K,
+				},
+			}
 
-		tokens = append(tokens, t, xml.CharData(v), xml.EndElement{Name: t.Name})
+			tokens = append(tokens, t, xml.CharData(p.V), xml.EndElement{Name: t.Name})
+		}
 	}
 
 	tokens = endBody(tokens, method)
@@ -189,27 +190,4 @@ func endBody(tokens []xml.Token, m string) []xml.Token {
 	}
 
 	return append(tokens, r, b)
-}
-
-func getKeys(paramsOrder []string, params *Params) (keys []string) {
-	if params == nil {
-		return nil
-	}
-
-	added := make(map[string]bool)
-
-	for _, k := range paramsOrder {
-		if _, ok := (*params)[k]; ok && !added[k] {
-			keys = append(keys, k)
-		}
-	}
-
-	if len(keys) != len(*params) {
-		keys = keys[:0]
-		for k, _ := range *params {
-			keys = append(keys, k)
-		}
-	}
-
-	return
 }

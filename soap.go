@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"encoding/xml"
+	"time"
 )
 
 // Client struct hold all the informations about WSDL,
@@ -19,12 +20,42 @@ type Helper struct {
 	location    string
 }
 
+type Param struct {
+	K, V string
+}
+
 // Params type is used to set the params in soap request
-type Params map[string]string
+type Params []Param
+
+func (ps *Params) Get(K string) (string, bool) {
+	for _, p := range *ps {
+		if p.K == K {
+			return p.V, true
+		}
+	}
+
+	return "", false
+}
+
+func (ps *Params) Set(K,V string) {
+	// Если параметр уже есть в списке, изменяем значение
+	for i, p := range *ps {
+		if p.K == K {
+			(*ps)[i].V = V
+			return
+		}
+	}
+
+	// Если параметра нет, добавляем
+	*ps = append(*ps, Param{K, V})
+}
 
 // SoapClient return new *Client to handle the requests with the WSDL
 func NewHelper(wsdlURL string) (*Helper, error) {
-	r, err := http.Get(wsdlURL)
+	client := http.Client{
+		Timeout: 5*time.Second,
+	}
+	r, err := client.Get(wsdlURL)
 	if r != nil && r.Body != nil {
 		defer r.Body.Close()
 	}
@@ -76,9 +107,9 @@ func (c *Helper) getSOAPAction(method string) string {
 	return fmt.Sprintf("%s/%s", c.url, method)
 }
 
-// Заполняет поля fasthttp.Request, paramsOrder не обязательный параметр
-func (c *Helper) FillFastRequest(req *fasthttp.Request, method string, params *Params, paramsOrder []string, headerName string, headerParams *Params) error {
-	payload, err := c.encode(method, params, paramsOrder, headerName, headerParams)
+// Заполняет поля fasthttp.Request
+func (c *Helper) FillFastRequest(req *fasthttp.Request, method string, params *Params, headerName string, headerParams *Params) error {
+	payload, err := c.encode(method, params, headerName, headerParams)
 	if err != nil {
 		return fmt.Errorf("gosoap.FillFastRequest: %v", err)
 	}
