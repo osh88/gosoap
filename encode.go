@@ -35,7 +35,12 @@ func (c *Helper) encode(method string, params *Params, headerName string, header
 					Local: p.K,
 				},
 			}
-			tokens = append(tokens, t, xml.CharData(p.V), xml.EndElement{Name: t.Name})
+
+			if p.IsRaw() {
+				tokens = append(tokens, t, RawToken(p.GetV()), xml.EndElement{Name: t.Name})
+			} else {
+				tokens = append(tokens, t, xml.CharData(p.GetV()), xml.EndElement{Name: t.Name})
+			}
 		}
 		tokens = endHeader(tokens, headerName)
 	}
@@ -53,7 +58,11 @@ func (c *Helper) encode(method string, params *Params, headerName string, header
 				},
 			}
 
-			tokens = append(tokens, t, xml.CharData(p.V), xml.EndElement{Name: t.Name})
+			if p.IsRaw() {
+				tokens = append(tokens, t, RawToken(p.GetV()), xml.EndElement{Name: t.Name})
+			} else {
+				tokens = append(tokens, t, xml.CharData(p.GetV()), xml.EndElement{Name: t.Name})
+			}
 		}
 	}
 
@@ -61,8 +70,18 @@ func (c *Helper) encode(method string, params *Params, headerName string, header
 	tokens = endEnvelope(tokens)
 
 	for _, t := range tokens {
-		if err := e.EncodeToken(t); err != nil {
-			return nil, err
+		switch v := t.(type) {
+		case RawToken:
+			if err := e.Flush(); err != nil {
+				return nil, err
+			}
+			if _, err := buf.WriteString(string(v)); err != nil {
+				return nil, err
+			}
+		default:
+			if err := e.EncodeToken(t); err != nil {
+				return nil, err
+			}
 		}
 	}
 

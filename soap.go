@@ -2,12 +2,12 @@ package gosoap
 
 import (
 	"bytes"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"github.com/valyala/fasthttp"
 	"net/http"
 	"strings"
-	"encoding/xml"
 	"time"
 )
 
@@ -20,8 +20,37 @@ type Helper struct {
 	location    string
 }
 
+type RawToken string
+const rawTokenPrefix = "##RawToken:"
+
 type Param struct {
 	K, V string
+}
+
+// Пометить значение как сырое
+// (сырое значение будет записано как есть без экранизации)
+func (o *Param) SetRaw(raw bool) {
+	// Если нужно пометить как сырой xml
+	if raw && !o.IsRaw() {
+		o.V = rawTokenPrefix + o.V
+	}
+
+	// Если нужно убрать признак сырого xml
+	if !raw && o.IsRaw() {
+		o.V = o.V[len(rawTokenPrefix):]
+	}
+}
+
+func (o *Param) IsRaw() bool {
+	return strings.HasPrefix(o.V, rawTokenPrefix)
+}
+
+func (o *Param) GetV() string {
+	if o.IsRaw() {
+		return o.V[len(rawTokenPrefix):]
+	} else {
+		return o.V
+	}
 }
 
 // Params type is used to set the params in soap request
